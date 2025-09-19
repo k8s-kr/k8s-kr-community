@@ -3,13 +3,14 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { AuthButton } from "@/components/auth-button"
-import { ArrowLeft, MessageSquare, Heart, Share2, Send, MoreVertical } from "lucide-react"
+import { ArrowLeft, MessageSquare, Heart, Share2, Send, Edit as EditIcon, MoreVertical, Trash2, Pin, PinOff } from "lucide-react"
 import Link from "next/link"
 
 interface Post {
@@ -25,6 +26,8 @@ interface Post {
   }
   createdAt: string
   comments: Comment[]
+  likes?: string[] // 좋아요 누른 사용자들의 email 배열
+  pinned?: boolean
 }
 
 interface Comment {
@@ -36,6 +39,8 @@ interface Comment {
     email: string
   }
   createdAt: string
+  replies?: Comment[]
+  parentId?: string
 }
 
 function useTemporarySession() {
@@ -57,9 +62,17 @@ export default function PostDetailPage() {
   const { data: session } = useTemporarySession()
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [post, setPost] = useState<Post | null>(null)
   const [newComment, setNewComment] = useState("")
   const [isSubmittingComment, setIsSubmittingComment] = useState(false)
+  const [replyingTo, setReplyingTo] = useState<string | null>(null)
+  const [replyContent, setReplyContent] = useState("")
+  const [editingComment, setEditingComment] = useState<string | null>(null)
+  const [editContent, setEditContent] = useState("")
+  const [mentionSuggestions, setMentionSuggestions] = useState<{name: string, email: string}[]>([])
+  const [showMentions, setShowMentions] = useState(false)
+  const [mentionFilter, setMentionFilter] = useState("")
 
   useEffect(() => {
     if (params.id === "create") {
@@ -84,6 +97,245 @@ export default function PostDetailPage() {
     console.log("[v0] Found post:", foundPost)
   }, [params.id])
 
+  // 현재 게시글에 댓글을 작성한 모든 사용자 추출
+  const getAvailableUsers = () => {
+    if (!post) return []
+
+    const users = new Map()
+
+    // 게시글 작성자 추가
+    users.set(post.author.email, {
+      name: post.author.name,
+      email: post.author.email
+    })
+
+    // 댓글 작성자들 추가
+    post.comments.forEach(comment => {
+      users.set(comment.author.email, {
+        name: comment.author.name,
+        email: comment.author.email
+      })
+
+      // 대댓글 작성자들 추가
+      if (comment.replies) {
+        comment.replies.forEach(reply => {
+          users.set(reply.author.email, {
+            name: reply.author.name,
+            email: reply.author.email
+          })
+        })
+      }
+    })
+
+    // 본인 제외
+    if (session) {
+      users.delete(session.email)
+    }
+
+    return Array.from(users.values())
+  }
+
+  const handleMentionInput = (value: string, isReply: boolean = false) => {
+    const lastAtIndex = value.lastIndexOf('@')
+
+    if (lastAtIndex !== -1) {
+      const afterAt = value.slice(lastAtIndex + 1)
+      const spaceIndex = afterAt.indexOf(' ')
+      const currentMention = spaceIndex === -1 ? afterAt : afterAt.slice(0, spaceIndex)
+
+      if (currentMention.length >= 0 && spaceIndex === -1) {
+        const availableUsers = getAvailableUsers()
+        const filtered = availableUsers.filter(user =>
+          user.name.toLowerCase().includes(currentMention.toLowerCase())
+        )
+        setMentionSuggestions(filtered)
+        setMentionFilter(currentMention)
+        setShowMentions(filtered.length > 0)
+      } else {
+        setShowMentions(false)
+      }
+    } else {
+      setShowMentions(false)
+    }
+  }
+
+  const insertMention = (userName: string, isReply: boolean = false) => {
+    const currentValue = isReply ? replyContent : newComment
+    const lastAtIndex = currentValue.lastIndexOf('@')
+
+    if (lastAtIndex !== -1) {
+      const beforeAt = currentValue.slice(0, lastAtIndex)
+      const afterAt = currentValue.slice(lastAtIndex + 1)
+      const spaceIndex = afterAt.indexOf(' ')
+      const afterMention = spaceIndex === -1 ? '' : afterAt.slice(spaceIndex)
+
+      const newValue = `${beforeAt}@${userName}${afterMention}`
+
+      if (isReply) {
+        setReplyContent(newValue)
+      } else {
+        setNewComment(newValue)
+      }
+    }
+
+    setShowMentions(false)
+    setMentionSuggestions([])
+  }
+
+  const handleLikeToggle = async () => {
+    if (!session || !post) return
+
+    try {
+      const posts = JSON.parse(localStorage.getItem("posts") || "[]")
+      const updatedPosts = posts.map((p: any) => {
+        if (p.id === post.id) {
+          const likes = p.likes || []
+          const hasLiked = likes.includes(session.email)
+
+          if (hasLiked) {
+            // 좋아요 취소
+            return {
+              ...p,
+              likes: likes.filter((email: string) => email !== session.email)
+            }
+          } else {
+            // 좋아요 추가
+            return {
+              ...p,
+              likes: [...likes, session.email]
+            }
+          }
+        }
+        return p
+      })
+
+      localStorage.setItem("posts", JSON.stringify(updatedPosts))
+
+      // 상태 업데이트
+      const likes = post.likes || []
+      const hasLiked = likes.includes(session.email)
+
+      if (hasLiked) {
+        setPost({
+          ...post,
+          likes: likes.filter(email => email !== session.email)
+        })
+      } else {
+        setPost({
+          ...post,
+          likes: [...likes, session.email]
+        })
+      }
+    } catch (error) {
+      console.error("좋아요 처리 실패:", error)
+    }
+  }
+
+  const handlePinToggle = async () => {
+    if (!post || !session) return
+
+    // 관리자 권한 체크 (admin 이메일 또는 특정 권한)
+    const isAdmin = session.email === "admin@example.com" || session.name === "admin"
+    if (!isAdmin) {
+      alert("관리자만 고정글을 설정할 수 있습니다.")
+      return
+    }
+
+    try {
+      const posts = JSON.parse(localStorage.getItem("posts") || "[]")
+      const updatedPosts = posts.map((p: any) => {
+        if (p.id === post.id) {
+          return {
+            ...p,
+            pinned: !p.pinned
+          }
+        }
+        return p
+      })
+
+      localStorage.setItem("posts", JSON.stringify(updatedPosts))
+
+      // 상태 업데이트
+      setPost({
+        ...post,
+        pinned: !post.pinned
+      })
+
+      alert(post.pinned ? "고정글이 해제되었습니다." : "고정글로 설정되었습니다.")
+    } catch (error) {
+      console.error("고정글 설정 실패:", error)
+    }
+  }
+
+  const handleShare = async () => {
+    const url = window.location.href
+
+    try {
+      if (navigator.share) {
+        // 네이티브 공유 API 사용 (모바일)
+        await navigator.share({
+          title: post?.title,
+          text: `${post?.title} - Kubernetes Korea`,
+          url: url,
+        })
+      } else {
+        // URL 클립보드에 복사
+        await navigator.clipboard.writeText(url)
+        alert("게시글 URL이 클립보드에 복사되었습니다!")
+      }
+    } catch (error) {
+      // 폴백: URL을 선택 가능한 텍스트로 표시
+      const textArea = document.createElement('textarea')
+      textArea.value = url
+      document.body.appendChild(textArea)
+      textArea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textArea)
+      alert("게시글 URL이 클립보드에 복사되었습니다!")
+    }
+  }
+
+  const renderMentionedText = (text: string) => {
+    const mentionRegex = /@([\w가-힣]+)/g
+    const parts = text.split(mentionRegex)
+
+    return parts.map((part, index) => {
+      if (index % 2 === 1) {
+        // 멘션된 사용자명 - 실제 사용자인지 확인
+        const availableUsers = getAvailableUsers()
+        const isValidUser = availableUsers.some(user => user.name === part)
+
+        if (isValidUser) {
+          return (
+            <span key={index} className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-1 rounded font-medium cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors">
+              @{part}
+            </span>
+          )
+        } else {
+          // 유효하지 않은 멘션은 일반 텍스트로 표시
+          return `@${part}`
+        }
+      }
+      return part
+    })
+  }
+
+  const handleDeletePost = async () => {
+    if (!post || !session) return
+
+    const confirmed = window.confirm("정말로 이 게시글을 삭제하시겠습니까?")
+    if (!confirmed) return
+
+    try {
+      const posts = JSON.parse(localStorage.getItem("posts") || "[]")
+      const filteredPosts = posts.filter((p: Post) => p.id !== post.id)
+      localStorage.setItem("posts", JSON.stringify(filteredPosts))
+      router.push("/posts")
+    } catch (error) {
+      console.error("게시글 삭제 실패:", error)
+    }
+  }
+
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newComment.trim() || !session || !post) return
@@ -100,6 +352,7 @@ export default function PostDetailPage() {
           email: session.email || "",
         },
         createdAt: new Date().toISOString(),
+        replies: [],
       }
 
       const posts = JSON.parse(localStorage.getItem("posts") || "[]")
@@ -117,6 +370,201 @@ export default function PostDetailPage() {
       console.error("댓글 작성 실패:", error)
     } finally {
       setIsSubmittingComment(false)
+    }
+  }
+
+  const handleReplySubmit = async (parentCommentId: string) => {
+    if (!replyContent.trim() || !session || !post) return
+
+    try {
+      const reply: Comment = {
+        id: Date.now().toString(),
+        content: replyContent.trim(),
+        author: {
+          name: session.name || "",
+          image: session.image || "",
+          email: session.email || "",
+        },
+        createdAt: new Date().toISOString(),
+        parentId: parentCommentId,
+      }
+
+      const posts = JSON.parse(localStorage.getItem("posts") || "[]")
+      const updatedPosts = posts.map((p: Post) => {
+        if (p.id === post.id) {
+          const updatedComments = p.comments.map((comment) => {
+            if (comment.id === parentCommentId) {
+              return {
+                ...comment,
+                replies: [...(comment.replies || []), reply],
+              }
+            }
+            return comment
+          })
+          return { ...p, comments: updatedComments }
+        }
+        return p
+      })
+
+      localStorage.setItem("posts", JSON.stringify(updatedPosts))
+
+      const updatedPost = {
+        ...post,
+        comments: post.comments.map((comment) => {
+          if (comment.id === parentCommentId) {
+            return {
+              ...comment,
+              replies: [...(comment.replies || []), reply],
+            }
+          }
+          return comment
+        })
+      }
+
+      setPost(updatedPost)
+      setReplyContent("")
+      setReplyingTo(null)
+    } catch (error) {
+      console.error("대댓글 작성 실패:", error)
+    }
+  }
+
+  const handleCommentEdit = (commentId: string, currentContent: string) => {
+    setEditingComment(commentId)
+    setEditContent(currentContent)
+  }
+
+  const handleCommentEditSubmit = (commentId: string, isReply: boolean = false, parentId?: string) => {
+    if (!editContent.trim() || !post) return
+
+    try {
+      const posts = JSON.parse(localStorage.getItem("posts") || "[]")
+      const updatedPosts = posts.map((p: Post) => {
+        if (p.id === post.id) {
+          if (isReply && parentId) {
+            // 대댓글 수정
+            const updatedComments = p.comments.map((comment) => {
+              if (comment.id === parentId) {
+                return {
+                  ...comment,
+                  replies: comment.replies?.map((reply) =>
+                    reply.id === commentId
+                      ? { ...reply, content: editContent.trim(), updatedAt: new Date().toISOString() }
+                      : reply
+                  ) || []
+                }
+              }
+              return comment
+            })
+            return { ...p, comments: updatedComments }
+          } else {
+            // 메인 댓글 수정
+            const updatedComments = p.comments.map((comment) =>
+              comment.id === commentId
+                ? { ...comment, content: editContent.trim(), updatedAt: new Date().toISOString() }
+                : comment
+            )
+            return { ...p, comments: updatedComments }
+          }
+        }
+        return p
+      })
+
+      localStorage.setItem("posts", JSON.stringify(updatedPosts))
+
+      // 상태 업데이트
+      if (isReply && parentId) {
+        const updatedPost = {
+          ...post,
+          comments: post.comments.map((comment) => {
+            if (comment.id === parentId) {
+              return {
+                ...comment,
+                replies: comment.replies?.map((reply) =>
+                  reply.id === commentId
+                    ? { ...reply, content: editContent.trim(), updatedAt: new Date().toISOString() }
+                    : reply
+                ) || []
+              }
+            }
+            return comment
+          })
+        }
+        setPost(updatedPost)
+      } else {
+        const updatedPost = {
+          ...post,
+          comments: post.comments.map((comment) =>
+            comment.id === commentId
+              ? { ...comment, content: editContent.trim(), updatedAt: new Date().toISOString() }
+              : comment
+          )
+        }
+        setPost(updatedPost)
+      }
+
+      setEditingComment(null)
+      setEditContent("")
+    } catch (error) {
+      console.error("댓글 수정 실패:", error)
+    }
+  }
+
+  const handleCommentDelete = (commentId: string, isReply: boolean = false, parentId?: string) => {
+    const confirmed = window.confirm("정말로 이 댓글을 삭제하시겠습니까?")
+    if (!confirmed || !post) return
+
+    try {
+      const posts = JSON.parse(localStorage.getItem("posts") || "[]")
+      const updatedPosts = posts.map((p: Post) => {
+        if (p.id === post.id) {
+          if (isReply && parentId) {
+            // 대댓글 삭제
+            const updatedComments = p.comments.map((comment) => {
+              if (comment.id === parentId) {
+                return {
+                  ...comment,
+                  replies: comment.replies?.filter((reply) => reply.id !== commentId) || []
+                }
+              }
+              return comment
+            })
+            return { ...p, comments: updatedComments }
+          } else {
+            // 메인 댓글 삭제
+            const updatedComments = p.comments.filter((comment) => comment.id !== commentId)
+            return { ...p, comments: updatedComments }
+          }
+        }
+        return p
+      })
+
+      localStorage.setItem("posts", JSON.stringify(updatedPosts))
+
+      // 상태 업데이트
+      if (isReply && parentId) {
+        const updatedPost = {
+          ...post,
+          comments: post.comments.map((comment) => {
+            if (comment.id === parentId) {
+              return {
+                ...comment,
+                replies: comment.replies?.filter((reply) => reply.id !== commentId) || []
+              }
+            }
+            return comment
+          })
+        }
+        setPost(updatedPost)
+      } else {
+        const updatedPost = {
+          ...post,
+          comments: post.comments.filter((comment) => comment.id !== commentId)
+        }
+        setPost(updatedPost)
+      }
+    } catch (error) {
+      console.error("댓글 삭제 실패:", error)
     }
   }
 
@@ -202,6 +650,12 @@ export default function PostDetailPage() {
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-3">
+                    {post.pinned && (
+                      <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">
+                        <Pin className="w-3 h-3 mr-1" />
+                        고정
+                      </Badge>
+                    )}
                     <Badge className={getCategoryColor(post.category)}>{getCategoryLabel(post.category)}</Badge>
                     <span className="text-sm text-gray-500">
                       {new Date(post.createdAt).toLocaleDateString("ko-KR", {
@@ -230,31 +684,114 @@ export default function PostDetailPage() {
                   {post.tags.length > 0 && (
                     <div className="flex flex-wrap gap-2 mb-6">
                       {post.tags.map((tag, index) => (
-                        <Badge key={index} variant="outline" className="text-xs">
+                        <Badge
+                          key={index}
+                          className="text-xs border border-gray-200 bg-gray-50 text-gray-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 cursor-pointer transition-colors"
+                          onClick={() => {
+                            const currentTagParam = searchParams.get('tag')
+                            const currentTags = currentTagParam ? currentTagParam.split(',') : []
+
+                            if (!currentTags.includes(tag)) {
+                              const newTags = [...currentTags, tag]
+                              router.push(`/posts?tag=${encodeURIComponent(newTags.join(','))}`)
+                            } else {
+                              router.push(`/posts?tag=${encodeURIComponent(tag)}`)
+                            }
+                          }}
+                        >
                           #{tag}
                         </Badge>
                       ))}
                     </div>
                   )}
                 </div>
-                <Button variant="ghost" size="sm">
-                  <MoreVertical className="w-4 h-4" />
-                </Button>
+                {session && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger className="flex items-center justify-center w-8 h-8 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                      <MoreVertical className="w-4 h-4" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {session.email === post.author.email && (
+                        <>
+                          <DropdownMenuItem
+                            onClick={() => router.push(`/posts/${post.id}/edit`)}
+                            className="flex items-center cursor-pointer"
+                          >
+                            <EditIcon className="w-4 h-4 mr-2" />
+                            수정
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={handleDeletePost}
+                            className="flex items-center text-red-600 focus:text-red-600 cursor-pointer"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            삭제
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                      {(session.email === "admin@example.com" || session.name === "admin") && (
+                        <DropdownMenuItem
+                          onClick={handlePinToggle}
+                          className="flex items-center cursor-pointer"
+                        >
+                          {post.pinned ? (
+                            <>
+                              <PinOff className="w-4 h-4 mr-2" />
+                              고정 해제
+                            </>
+                          ) : (
+                            <>
+                              <Pin className="w-4 h-4 mr-2" />
+                              고정하기
+                            </>
+                          )}
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </div>
             </CardHeader>
             <CardContent>
-              <div className="prose prose-gray dark:prose-invert max-w-none">
-                <div className="whitespace-pre-wrap text-gray-700 dark:text-gray-300 leading-relaxed">
-                  {post.content}
-                </div>
-              </div>
+              <div
+                className="prose prose-lg prose-gray dark:prose-invert max-w-none prose-headings:font-semibold prose-p:text-gray-700 dark:prose-p:text-gray-300 prose-strong:text-gray-900 dark:prose-strong:text-gray-100"
+                dangerouslySetInnerHTML={{ __html: post.content }}
+              />
 
               <div className="flex items-center gap-4 mt-8 pt-6 border-t">
-                <Button variant="ghost" size="sm">
-                  <Heart className="w-4 h-4 mr-2" />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleLikeToggle}
+                  className={`transition-colors relative group ${
+                    session && post.likes?.includes(session.email)
+                      ? 'text-red-600 hover:text-red-700'
+                      : 'text-gray-600 hover:text-gray-700'
+                  }`}
+                  title={
+                    post.likes && post.likes.length > 0
+                      ? `좋아요: ${getAvailableUsers()
+                          .filter(user => post.likes?.includes(user.email))
+                          .map(user => user.name)
+                          .join(', ')}`
+                      : ''
+                  }
+                >
+                  <Heart
+                    className={`w-4 h-4 mr-2 transition-all duration-200 ${
+                      session && post.likes?.includes(session.email)
+                        ? 'fill-red-600 text-red-600 scale-110'
+                        : ''
+                    }`}
+                  />
                   좋아요
+                  {post.likes && post.likes.length > 0 && (
+                    <span className="ml-1 font-medium">
+                      {post.likes.length}
+                    </span>
+                  )}
                 </Button>
-                <Button variant="ghost" size="sm">
+                <Button variant="ghost" size="sm" onClick={handleShare}>
                   <Share2 className="w-4 h-4 mr-2" />
                   공유
                 </Button>
@@ -284,13 +821,31 @@ export default function PostDetailPage() {
                       alt={session.name || ""}
                       className="w-8 h-8 rounded-full"
                     />
-                    <div className="flex-1">
+                    <div className="flex-1 relative">
                       <Textarea
                         value={newComment}
-                        onChange={(e) => setNewComment(e.target.value)}
-                        placeholder="댓글을 작성해주세요..."
+                        onChange={(e) => {
+                          setNewComment(e.target.value)
+                          handleMentionInput(e.target.value, false)
+                        }}
+                        placeholder="댓글을 작성해주세요... (@사용자명으로 멘션 가능)"
                         className="min-h-[80px] resize-none"
                       />
+
+                      {/* 멘션 자동완성 드롭다운 */}
+                      {showMentions && mentionSuggestions.length > 0 && (
+                        <div className="absolute bottom-full left-0 right-0 mb-1 bg-white dark:bg-gray-800 border rounded-lg shadow-lg max-h-32 overflow-y-auto z-10">
+                          {mentionSuggestions.map((user) => (
+                            <button
+                              key={user.email}
+                              onClick={() => insertMention(user.name, false)}
+                              className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                            >
+                              <span className="font-medium">@{user.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                       <div className="flex justify-end mt-2">
                         <Button
                           type="submit"
@@ -330,26 +885,243 @@ export default function PostDetailPage() {
                   </div>
                 ) : (
                   post.comments.map((comment) => (
-                    <div key={comment.id} className="flex items-start gap-3 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                      <img
-                        src={comment.author.image || "/placeholder.svg?height=32&width=32"}
-                        alt={comment.author.name}
-                        className="w-8 h-8 rounded-full"
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium text-gray-900 dark:text-white">{comment.author.name}</span>
-                          <span className="text-sm text-gray-500">
-                            {new Date(comment.createdAt).toLocaleDateString("ko-KR", {
-                              month: "short",
-                              day: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </span>
+                    <div key={comment.id} className="space-y-3">
+                      {/* 메인 댓글 */}
+                      <div className="flex items-start gap-3 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <img
+                          src={comment.author.image || "/placeholder.svg?height=32&width=32"}
+                          alt={comment.author.name}
+                          className="w-8 h-8 rounded-full"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-gray-900 dark:text-white">{comment.author.name}</span>
+                              <span className="text-sm text-gray-500">
+                                {new Date(comment.createdAt).toLocaleDateString("ko-KR", {
+                                  month: "short",
+                                  day: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </span>
+                            </div>
+                            {session && session.email === comment.author.email && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger className="flex items-center justify-center w-6 h-6 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                                  <MoreVertical className="w-3 h-3" />
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem
+                                    onClick={() => handleCommentEdit(comment.id, comment.content)}
+                                    className="flex items-center cursor-pointer"
+                                  >
+                                    <EditIcon className="w-3 h-3 mr-2" />
+                                    수정
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => handleCommentDelete(comment.id)}
+                                    className="flex items-center text-red-600 focus:text-red-600 cursor-pointer"
+                                  >
+                                    <Trash2 className="w-3 h-3 mr-2" />
+                                    삭제
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
+                          </div>
+
+                          {editingComment === comment.id ? (
+                            <div className="space-y-2">
+                              <Textarea
+                                value={editContent}
+                                onChange={(e) => setEditContent(e.target.value)}
+                                className="min-h-[80px] resize-none"
+                              />
+                              <div className="flex gap-2">
+                                <Button
+                                  onClick={() => handleCommentEditSubmit(comment.id)}
+                                  disabled={!editContent.trim()}
+                                  size="sm"
+                                  className="bg-blue-600 hover:bg-blue-700"
+                                >
+                                  저장
+                                </Button>
+                                <Button
+                                  onClick={() => {
+                                    setEditingComment(null)
+                                    setEditContent("")
+                                  }}
+                                  variant="outline"
+                                  size="sm"
+                                >
+                                  취소
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap mb-2">
+                                {renderMentionedText(comment.content)}
+                              </p>
+                              {session && (
+                                <button
+                                  onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
+                                  className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                                >
+                                  답글
+                                </button>
+                              )}
+                            </>
+                          )}
                         </div>
-                        <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{comment.content}</p>
                       </div>
+
+                      {/* 대댓글 폼 */}
+                      {replyingTo === comment.id && session && (
+                        <div className="ml-11 p-4 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                          <div className="flex items-start gap-3">
+                            <img
+                              src={session.image || "/placeholder.svg?height=24&width=24"}
+                              alt={session.name || ""}
+                              className="w-6 h-6 rounded-full"
+                            />
+                            <div className="flex-1 relative">
+                              <Textarea
+                                value={replyContent}
+                                onChange={(e) => {
+                                  setReplyContent(e.target.value)
+                                  handleMentionInput(e.target.value, true)
+                                }}
+                                placeholder="답글을 작성해주세요... (@사용자명으로 멘션 가능)"
+                                className="min-h-[60px] resize-none text-sm"
+                              />
+
+                              {/* 대댓글 멘션 자동완성 드롭다운 */}
+                              {showMentions && mentionSuggestions.length > 0 && replyingTo === comment.id && (
+                                <div className="absolute bottom-full left-0 right-0 mb-1 bg-white dark:bg-gray-800 border rounded-lg shadow-lg max-h-32 overflow-y-auto z-10">
+                                  {mentionSuggestions.map((user) => (
+                                    <button
+                                      key={user.email}
+                                      onClick={() => insertMention(user.name, true)}
+                                      className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                                    >
+                                      <span className="font-medium text-sm">@{user.name}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                              <div className="flex gap-2 mt-2">
+                                <Button
+                                  onClick={() => handleReplySubmit(comment.id)}
+                                  disabled={!replyContent.trim()}
+                                  size="sm"
+                                  className="bg-blue-600 hover:bg-blue-700"
+                                >
+                                  답글 작성
+                                </Button>
+                                <Button
+                                  onClick={() => {
+                                    setReplyingTo(null)
+                                    setReplyContent("")
+                                  }}
+                                  variant="outline"
+                                  size="sm"
+                                >
+                                  취소
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 대댓글 목록 */}
+                      {comment.replies && comment.replies.length > 0 && (
+                        <div className="ml-11 space-y-3">
+                          {comment.replies.map((reply) => (
+                            <div key={reply.id} className="flex items-start gap-3 p-3 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+                              <img
+                                src={reply.author.image || "/placeholder.svg?height=24&width=24"}
+                                alt={reply.author.name}
+                                className="w-6 h-6 rounded-full"
+                              />
+                              <div className="flex-1">
+                                <div className="flex items-center justify-between mb-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium text-gray-900 dark:text-white text-sm">{reply.author.name}</span>
+                                    <span className="text-xs text-gray-500">
+                                      {new Date(reply.createdAt).toLocaleDateString("ko-KR", {
+                                        month: "short",
+                                        day: "numeric",
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                      })}
+                                    </span>
+                                  </div>
+                                  {session && session.email === reply.author.email && (
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger className="flex items-center justify-center w-5 h-5 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                                        <MoreVertical className="w-2.5 h-2.5" />
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end">
+                                        <DropdownMenuItem
+                                          onClick={() => handleCommentEdit(reply.id, reply.content)}
+                                          className="flex items-center cursor-pointer"
+                                        >
+                                          <EditIcon className="w-3 h-3 mr-2" />
+                                          수정
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          onClick={() => handleCommentDelete(reply.id, true, comment.id)}
+                                          className="flex items-center text-red-600 focus:text-red-600 cursor-pointer"
+                                        >
+                                          <Trash2 className="w-3 h-3 mr-2" />
+                                          삭제
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  )}
+                                </div>
+
+                                {editingComment === reply.id ? (
+                                  <div className="space-y-2">
+                                    <Textarea
+                                      value={editContent}
+                                      onChange={(e) => setEditContent(e.target.value)}
+                                      className="min-h-[60px] resize-none text-sm"
+                                    />
+                                    <div className="flex gap-2">
+                                      <Button
+                                        onClick={() => handleCommentEditSubmit(reply.id, true, comment.id)}
+                                        disabled={!editContent.trim()}
+                                        size="sm"
+                                        className="bg-blue-600 hover:bg-blue-700"
+                                      >
+                                        저장
+                                      </Button>
+                                      <Button
+                                        onClick={() => {
+                                          setEditingComment(null)
+                                          setEditContent("")
+                                        }}
+                                        variant="outline"
+                                        size="sm"
+                                      >
+                                        취소
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap text-sm">
+                                    {renderMentionedText(reply.content)}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))
                 )}

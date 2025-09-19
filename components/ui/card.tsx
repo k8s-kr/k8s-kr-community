@@ -1,6 +1,7 @@
 import * as React from 'react'
 
 import { cn } from '@/lib/utils'
+import { stripHtml } from '@/lib/stripHtml'
 
 function Card({ className, ...props }: React.ComponentProps<'div'>) {
   return (
@@ -38,13 +39,35 @@ function CardTitle({ className, ...props }: React.ComponentProps<'div'>) {
   )
 }
 
-function CardDescription({ className, ...props }: React.ComponentProps<'div'>) {
+type CardDescriptionProps = {
+  text?: string
+  html?: string
+  maxLength?: number
+  className?: string
+}
+
+function CardDescription({
+  text,
+  html,
+  maxLength = 100,
+  className,
+}: CardDescriptionProps) {
+  const content = html
+    ? stripHtml(html, maxLength)
+    : text
+      ? text.slice(0, maxLength)
+      : ''
+
   return (
     <div
       data-slot="card-description"
-      className={cn('text-muted-foreground text-sm', className)}
-      {...props}
-    />
+      className={cn(
+        'text-muted-foreground text-sm line-clamp-3 overflow-hidden text-ellipsis',
+        className,
+      )}
+    >
+      {content}
+    </div>
   )
 }
 

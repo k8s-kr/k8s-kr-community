@@ -1,13 +1,14 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AuthButton } from "@/components/auth-button"
-import { Plus, Search, MessageSquare, Eye } from "lucide-react"
+import { Plus, Search, MessageSquare, Eye, Pin } from "lucide-react"
 import Link from "next/link"
 
 interface Post {
@@ -23,6 +24,8 @@ interface Post {
   }
   createdAt: string
   comments: any[]
+  likes?: string[]
+  pinned?: boolean
 }
 
 function useTemporarySession() {
@@ -42,9 +45,13 @@ function useTemporarySession() {
 
 export default function PostsPage() {
   const { data: session } = useTemporarySession()
+  const searchParams = useSearchParams()
   const [posts, setPosts] = useState<Post[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
+  const [sortBy, setSortBy] = useState<"latest"|"popular"|"commented"|"unanswered">("latest")
+  const tagFilter = searchParams.get('tag')
+  const tagFilters = tagFilter ? tagFilter.split(',') : []
 
   useEffect(() => {
     const savedPosts = JSON.parse(localStorage.getItem("posts") || "[]")
@@ -67,8 +74,64 @@ export default function PostsPage() {
       post.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
       post.tags.some((tag) => tag.toLowerCase().includes(searchTerm.toLowerCase()))
     const matchesCategory = selectedCategory === "all" || post.category === selectedCategory
-    return matchesSearch && matchesCategory
+    const matchesTag = tagFilters.length === 0 || tagFilters.every((filterTag) =>
+      post.tags.some((postTag) => postTag.toLowerCase() === filterTag.toLowerCase())
+    )
+    return matchesSearch && matchesCategory && matchesTag
   })
+
+  // 고정글과 일반글 분리
+  const pinnedPosts = filteredPosts.filter(post => post.pinned)
+  const regularPosts = filteredPosts.filter(post => !post.pinned)
+
+  const getLikeCount = (p: Post) => Array.isArray(p.likes) ? p.likes.length : 0
+  const getCommentCount = (p: Post) => Array.isArray(p.comments) ? p.comments.length : 0
+  const getPopularityScore = (p: Post) => getLikeCount(p) * 2 + getCommentCount(p) // 가중치는 필요시 조정
+
+  // 고정글은 생성일 기준 정렬, 일반글은 최신순 정렬
+  const sortedPinnedPosts = pinnedPosts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  const sortedRegularPosts = [...regularPosts].sort((a, b) => {
+  switch (sortBy) {
+    case "latest":
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    case "popular":
+      return getPopularityScore(b) - getPopularityScore(a)
+    case "commented":
+      return getCommentCount(b) - getCommentCount(a)
+    case "unanswered":
+      if (getCommentCount(a) === 0 && getCommentCount(b) > 0) return -1
+      if (getCommentCount(b) === 0 && getCommentCount(a) > 0) return 1
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    default:
+      return 0
+  }
+});
+  // 고정글을 상단에, 일반글을 하단에 배치
+  const sortedPosts = [...sortedPinnedPosts, ...sortedRegularPosts]
+
+  // 모든 게시글에서 사용된 태그들 추출
+  const allTags = Array.from(new Set(posts.flatMap(post => post.tags))).sort()
+
+  // 태그 클릭 핸들러
+  const handleTagClick = (tag: string) => {
+    const currentTags = tagFilters
+    let newTags: string[]
+
+    if (currentTags.includes(tag)) {
+      // 이미 선택된 태그면 제거
+      newTags = currentTags.filter(t => t !== tag)
+    } else {
+      // 새 태그 추가
+      newTags = [...currentTags, tag]
+    }
+
+    const newUrl = newTags.length > 0
+      ? `/posts?tag=${encodeURIComponent(newTags.join(','))}`
+      : '/posts'
+
+    window.history.replaceState({}, '', newUrl)
+    window.location.reload()
+  }
 
   const getCategoryLabel = (category: string) => {
     const labels: { [key: string]: string } = {
@@ -132,12 +195,25 @@ export default function PostsPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <Input
-                placeholder="게시글, 태그 검색..."
+                placeholder="게시글, 작성자 검색..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
               />
             </div>
+            {/* 정렬 */}
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+              <SelectTrigger className="w-full md:w-40">
+                <SelectValue placeholder="정렬" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="latest">최신순</SelectItem>
+                <SelectItem value="popular">인기순</SelectItem>
+                <SelectItem value="commented">댓글순</SelectItem>
+                <SelectItem value="unanswered">미답변</SelectItem>
+              </SelectContent>
+            </Select>
+            {/* 카테고리 */}
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
               <SelectTrigger className="w-full md:w-48">
                 <SelectValue placeholder="카테고리" />
@@ -153,11 +229,50 @@ export default function PostsPage() {
               </SelectContent>
             </Select>
           </div>
+
+          {/* 태그 선택 UI */}
+          {allTags.length > 0 && (
+            <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex flex-wrap gap-2">
+                  {allTags.map((tag) => (
+                    <Badge
+                      key={tag}
+                      className={`text-xs cursor-pointer transition-colors ${
+                        tagFilters.includes(tag)
+                          ? 'bg-blue-100 text-blue-800 border-blue-300 hover:bg-blue-200'
+                          : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                      }`}
+                      onClick={() => handleTagClick(tag)}
+                    >
+                      #{tag}
+                      {tagFilters.includes(tag) && (
+                        <span className="ml-1">✓</span>
+                      )}
+                    </Badge>
+                  ))}
+                </div>
+                {tagFilters.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      window.history.replaceState({}, '', '/posts')
+                      window.location.reload()
+                    }}
+                    className="text-gray-600 hover:text-gray-800 px-2 py-1 h-auto text-xs"
+                  >
+                    전체 해제
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Posts List */}
         <div className="space-y-6">
-          {filteredPosts.length === 0 ? (
+          {sortedPosts.length === 0 ? (
             <Card className="text-center py-12">
               <CardContent>
                 <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -177,13 +292,19 @@ export default function PostsPage() {
               </CardContent>
             </Card>
           ) : (
-            filteredPosts.map((post) => (
+            sortedPosts.map((post) => (
               <Link href={`/posts/${post.id}`} key={post.id} className="block hover:shadow-lg transition-shadow">
-                <Card>
+                <Card className={post.pinned ? "ring-2 ring-yellow-200 bg-yellow-50/50" : ""}>
                   <CardHeader>
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
+                          {post.pinned && (
+                            <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">
+                              <Pin className="w-3 h-3 mr-1" />
+                              고정
+                            </Badge>
+                          )}
                           <Badge className={getCategoryColor(post.category)}>{getCategoryLabel(post.category)}</Badge>
                           <span className="text-sm text-gray-500">
                             {new Date(post.createdAt).toLocaleDateString("ko-KR")}
@@ -192,15 +313,34 @@ export default function PostsPage() {
                         <CardTitle className="text-xl mb-2 hover:text-blue-600 cursor-pointer transition-colors">
                           {post.title}
                         </CardTitle>
-                        <CardDescription className="line-clamp-2">{post.content.substring(0, 150)}...</CardDescription>
+                        <CardDescription
+                          html={post.content}
+                          maxLength={150}
+                          className="line-clamp-2"
+                        />
                       </div>
                     </div>
 
                     {post.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-3">
                         {post.tags.map((tag, index) => (
-                          <Badge key={index} variant="outline" className="text-xs">
+                          <Badge
+                            key={index}
+                            className={`text-xs cursor-pointer transition-colors ${
+                              tagFilters.includes(tag)
+                                ? 'bg-blue-100 text-blue-800 border-blue-300 hover:bg-blue-200'
+                                : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700'
+                            }`}
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              handleTagClick(tag)
+                            }}
+                          >
                             #{tag}
+                            {tagFilters.includes(tag) && (
+                              <span className="ml-1">✓</span>
+                            )}
                           </Badge>
                         ))}
                       </div>
