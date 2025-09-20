@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AuthButton } from "@/components/auth-button"
 import { Plus, Search, MessageSquare, Eye, Pin } from "lucide-react"
+import { BUTTON_LABELS } from '@/lib/constants/messages'
 import Link from "next/link"
 
 interface Post {
@@ -285,7 +286,7 @@ export default function PostsPage() {
                 {session && posts.length === 0 && (
                   <Button asChild className="bg-blue-600 hover:bg-blue-700">
                     <Link href="/posts/create">
-                      <Plus className="w-4 h-4 mr-2" />첫 게시글 작성하기
+                      <Plus className="w-4 h-4 mr-2" />{BUTTON_LABELS.WRITE_POST}
                     </Link>
                   </Button>
                 )}

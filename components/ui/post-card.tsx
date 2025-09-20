@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { formatDate, textUtils, categoryUtils, userUtils } from '@/lib/helpers'
 import { createClickHandler, getButtonVariant, renderIf, renderTags, createSkeleton } from '@/lib/ui-utils'
+import { BUTTON_LABELS } from '@/lib/constants/messages'
 import type { PostCardProps } from '@/types'
 
 export function PostCard({
@@ -67,13 +68,13 @@ export function PostCard({
                     {onEdit && (
                       <DropdownMenuItem onClick={handleEdit}>
                         <Edit className="mr-2 h-4 w-4" />
-                        수정
+                        {BUTTON_LABELS.EDIT}
                       </DropdownMenuItem>
                     )}
                     {onDelete && (
                       <DropdownMenuItem onClick={handleDelete} className="text-destructive">
                         <Trash2 className="mr-2 h-4 w-4" />
-                        삭제
+                        {BUTTON_LABELS.DELETE}
                       </DropdownMenuItem>
                     )}
                   </DropdownMenuContent>

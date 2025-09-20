@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { UserPlus, UserMinus, Mail, Github, ExternalLink } from 'lucide-react'
 import { userUtils, textUtils } from '@/lib/helpers'
 import { createClickHandler, getButtonVariant, renderIf, LoadingSpinner, createSkeleton } from '@/lib/ui-utils'
+import { BUTTON_LABELS, LABELS } from '@/lib/constants/messages'
 import type { UserCardProps } from '@/types'
 
 export function UserCard({
@@ -69,12 +70,12 @@ export function UserCard({
                 ) : isFollowing ? (
                   <>
                     <UserMinus className="h-4 w-4 mr-2" />
-                    언팔로우
+                    {BUTTON_LABELS.UNFOLLOW}
                   </>
                 ) : (
                   <>
                     <UserPlus className="h-4 w-4 mr-2" />
-                    팔로우
+                    {BUTTON_LABELS.FOLLOW}
                   </>
                 )}
               </Button>
@@ -145,12 +146,12 @@ export function UserCard({
                 ) : isFollowing ? (
                   <>
                     <UserMinus className="h-4 w-4 mr-2" />
-                    언팔로우
+                    {BUTTON_LABELS.UNFOLLOW}
                   </>
                 ) : (
                   <>
                     <UserPlus className="h-4 w-4 mr-2" />
-                    팔로우
+                    {BUTTON_LABELS.FOLLOW}
                   </>
                 )}
               </Button>
@@ -172,19 +173,19 @@ export function UserCard({
               {renderIf(Boolean(stats?.posts !== undefined), (
                 <div className="text-center">
                   <div className="text-lg font-semibold">{stats?.posts}</div>
-                  <div className="text-xs text-muted-foreground">게시글</div>
+                  <div className="text-xs text-muted-foreground">{LABELS.POSTS}</div>
                 </div>
               ))}
               {renderIf(Boolean(stats?.followers !== undefined), (
                 <div className="text-center">
                   <div className="text-lg font-semibold">{stats?.followers}</div>
-                  <div className="text-xs text-muted-foreground">팔로워</div>
+                  <div className="text-xs text-muted-foreground">{LABELS.FOLLOWERS}</div>
                 </div>
               ))}
               {renderIf(Boolean(stats?.following !== undefined), (
                 <div className="text-center">
                   <div className="text-lg font-semibold">{stats?.following}</div>
-                  <div className="text-xs text-muted-foreground">팔로잉</div>
+                  <div className="text-xs text-muted-foreground">{LABELS.FOLLOWING}</div>
                 </div>
               ))}
             </div>
