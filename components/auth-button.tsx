@@ -12,11 +12,12 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Github, LogOut, User } from "lucide-react"
 import { useSession, signIn, signOut } from "next-auth/react"
-import { useState } from "react"
+import Link from "next/link"
 
 export function AuthButton() {
   const { data: session, status } = useSession()
-  const [dropdownOpen, setDropdownOpen] = useState(false)
+
+  console.log("AuthButton - session:", session, "status:", status)
   if (status === "loading") {
     return (
       <Button variant="outline" size="sm" disabled>
@@ -27,12 +28,11 @@ export function AuthButton() {
 
   if (session?.user) {
     return (
-      <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
+      <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
           className="relative h-10 w-10 rounded-full"
-          onClick={() => setDropdownOpen((prev) => !prev)}
         >
           <Avatar className="h-10 w-10">
         <AvatarImage src={session.user.image || ""} alt={session.user.name || ""} />
@@ -42,7 +42,7 @@ export function AuthButton() {
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56" align="end" forceMount>
+      <DropdownMenuContent className="w-56 z-50" align="end" sideOffset={8}>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
         <p className="text-sm font-medium leading-none">{session.user.name}</p>
@@ -50,9 +50,11 @@ export function AuthButton() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>
-          <User className="mr-2 h-4 w-4" />
-          <span>프로필</span>
+        <DropdownMenuItem asChild>
+          <Link href="/profile">
+            <User className="mr-2 h-4 w-4" />
+            <span>프로필</span>
+          </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => signOut()}>
