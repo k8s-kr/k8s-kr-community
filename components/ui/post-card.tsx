@@ -118,17 +118,17 @@ export function PostCard({
           <div className="flex items-center justify-between">
             {/* 작성자 정보 */}
             {showAuthor && (
-              <div className="flex items-center gap-2">
+              <Link href={`/users/${post.author.email}`} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
                 <Avatar className="h-6 w-6">
                   <AvatarImage src={userUtils.getAvatarUrl(post.author)} />
                   <AvatarFallback className="text-xs">
                     {userUtils.getInitials(post.author)}
                   </AvatarFallback>
                 </Avatar>
-                <span className="text-sm text-muted-foreground">
+                <span className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                   {userUtils.getDisplayName(post.author)}
                 </span>
-              </div>
+              </Link>
             )}
 
             {/* 통계 및 액션 */}

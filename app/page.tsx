@@ -8,6 +8,7 @@ import { AuthButton } from "@/components/auth-button"
 import { Users, MessageSquare, BookOpen } from "lucide-react"
 import Link from "next/link"
 import { stripHtml } from "@/lib/stripHtml"
+import { PAGE_MESSAGES, TIME_DISPLAY, CATEGORY_LABELS } from "@/lib/constants/messages"
 
 interface Post {
   id: string
@@ -118,15 +119,7 @@ export default function HomePage() {
   }, [])
 
   const getCategoryLabel = (category: string) => {
-    const labels: { [key: string]: string } = {
-      question: "질문",
-      tip: "팁",
-      discussion: "토론",
-      news: "뉴스",
-      tutorial: "튜토리얼",
-      showcase: "프로젝트",
-    }
-    return labels[category] || category
+    return CATEGORY_LABELS[category as keyof typeof CATEGORY_LABELS] || category
   }
 
   const getCategoryColor = (category: string) => {
@@ -152,7 +145,7 @@ export default function HomePage() {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900 dark:text-white">Kubernetes Korea</h1>
-                <p className="text-sm text-gray-600 dark:text-gray-300">한국 쿠버네티스 커뮤니티</p>
+                <p className="text-sm text-gray-600 dark:text-gray-300">{PAGE_MESSAGES.COMMUNITY_TITLE}</p>
               </div>
             </div>
             <div className="flex items-center gap-4">
@@ -167,23 +160,23 @@ export default function HomePage() {
         <div className="container mx-auto px-4 text-center">
           <div className="max-w-4xl mx-auto">
             <h2 className="text-4xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6 text-balance">
-              한국 쿠버네티스 커뮤니티에
-              <span className="text-blue-600"> 오신 것을 환영합니다</span>
+              {PAGE_MESSAGES.WELCOME_MESSAGE}
+              <span className="text-blue-600"> {PAGE_MESSAGES.WELCOME_HIGHLIGHT}</span>
             </h2>
             <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 text-pretty">
-              쿠버네티스 기술을 함께 배우고, 경험을 나누며, 성장하는 개발자들의 공간입니다. GitHub 계정으로 로그인하여
-              커뮤니티에 참여해보세요.
+              {PAGE_MESSAGES.WELCOME_DESCRIPTION}
+              {PAGE_MESSAGES.WELCOME_JOIN}
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button size="lg" className="bg-blue-600 hover:bg-blue-700" asChild>
                 <Link href="/posts">
                   <MessageSquare className="w-5 h-5 mr-2" />
-                  커뮤니티 둘러보기
+                  {PAGE_MESSAGES.EXPLORE_COMMUNITY}
                 </Link>
               </Button>
               <Button variant="outline" size="lg">
                 <BookOpen className="w-5 h-5 mr-2" />
-                학습 자료
+                {PAGE_MESSAGES.LEARNING_MATERIALS}
               </Button>
             </div>
           </div>
@@ -194,9 +187,9 @@ export default function HomePage() {
       <section className="py-16 bg-white/50 dark:bg-gray-800/50">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
-            <h3 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">커뮤니티 특징</h3>
+            <h3 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">{PAGE_MESSAGES.COMMUNITY_FEATURES}</h3>
             <p className="text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-              한국 개발자들을 위한 쿠버네티스 전문 커뮤니티의 주요 특징들입니다.
+              {PAGE_MESSAGES.FEATURES_DESCRIPTION}
             </p>
           </div>
 
@@ -206,8 +199,8 @@ export default function HomePage() {
                 <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center mb-4">
                   <Users className="w-6 h-6 text-blue-600" />
                 </div>
-                <CardTitle>GitHub 통합</CardTitle>
-                <CardDescription text="GitHub 계정으로 간편하게 로그인하고 개발자 프로필을 연동하세요." />
+                <CardTitle>{PAGE_MESSAGES.GITHUB_INTEGRATION}</CardTitle>
+                <CardDescription text={PAGE_MESSAGES.GITHUB_INTEGRATION_DESC} />
               </CardHeader>
             </Card>
 
@@ -216,8 +209,8 @@ export default function HomePage() {
                 <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center mb-4">
                   <Users className="w-6 h-6 text-green-600" />
                 </div>
-                <CardTitle>활발한 커뮤니티</CardTitle>
-                <CardDescription text="한국의 쿠버네티스 전문가들과 함께 지식을 공유하고 네트워킹하세요." />
+                <CardTitle>{PAGE_MESSAGES.ACTIVE_COMMUNITY}</CardTitle>
+                <CardDescription text={PAGE_MESSAGES.ACTIVE_COMMUNITY_DESC} />
               </CardHeader>
             </Card>
 
@@ -226,8 +219,8 @@ export default function HomePage() {
                 <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center mb-4">
                   <BookOpen className="w-6 h-6 text-purple-600" />
                 </div>
-                <CardTitle>학습 자료</CardTitle>
-                <CardDescription text="초보자부터 전문가까지, 단계별 학습 자료와 실습 예제를 제공합니다." />
+                <CardTitle>{PAGE_MESSAGES.LEARNING_MATERIALS}</CardTitle>
+                <CardDescription text={PAGE_MESSAGES.LEARNING_MATERIALS_DESC} />
               </CardHeader>
             </Card>
           </div>
@@ -238,9 +231,9 @@ export default function HomePage() {
       <section className="py-16">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between mb-8">
-            <h3 className="text-3xl font-bold text-gray-900 dark:text-white">최근 게시글</h3>
+            <h3 className="text-3xl font-bold text-gray-900 dark:text-white">{PAGE_MESSAGES.RECENT_POSTS}</h3>
             <Button variant="outline" asChild>
-              <Link href="/posts">전체 보기</Link>
+              <Link href="/posts">{PAGE_MESSAGES.VIEW_ALL}</Link>
             </Button>
           </div>
 
@@ -251,17 +244,17 @@ export default function HomePage() {
                 <Card className="hover:shadow-lg transition-shadow">
                   <CardHeader>
                     <div className="flex items-center gap-2 mb-2">
-                      <Badge className="bg-blue-100 text-blue-800">질문</Badge>
-                      <span className="text-sm text-gray-500">2시간 전</span>
+                      <Badge className="bg-blue-100 text-blue-800">{CATEGORY_LABELS.question}</Badge>
+                      <span className="text-sm text-gray-500">2{TIME_DISPLAY.HOURS_AGO_SUFFIX}</span>
                     </div>
                     <CardTitle className="text-lg">Pod 네트워킹 이슈 해결 방법</CardTitle>
                     <CardDescription text="멀티 노드 클러스터에서 Pod 간 통신이 안 되는 문제를 겪고 있습니다..." />
                   </CardHeader>
                   <CardContent>
                     <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <span>작성자: developer123</span>
+                      <span>{TIME_DISPLAY.AUTHOR_PREFIX} developer123</span>
                       <span>•</span>
-                      <span>댓글 5개</span>
+                      <span>댓글 5{TIME_DISPLAY.COMMENTS_SUFFIX}</span>
                     </div>
                   </CardContent>
                 </Card>
@@ -269,17 +262,17 @@ export default function HomePage() {
                 <Card className="hover:shadow-lg transition-shadow">
                   <CardHeader>
                     <div className="flex items-center gap-2 mb-2">
-                      <Badge className="bg-green-100 text-green-800">팁</Badge>
-                      <span className="text-sm text-gray-500">1일 전</span>
+                      <Badge className="bg-green-100 text-green-800">{CATEGORY_LABELS.tip}</Badge>
+                      <span className="text-sm text-gray-500">1{TIME_DISPLAY.DAYS_AGO_SUFFIX}</span>
                     </div>
                     <CardTitle className="text-lg">Helm Chart 최적화 가이드</CardTitle>
                     <CardDescription text="프로덕션 환경에서 Helm Chart를 효율적으로 관리하는 방법을 공유합니다..." />
                   </CardHeader>
                   <CardContent>
                     <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <span>작성자: k8s_expert</span>
+                      <span>{TIME_DISPLAY.AUTHOR_PREFIX} k8s_expert</span>
                       <span>•</span>
-                      <span>댓글 12개</span>
+                      <span>댓글 12{TIME_DISPLAY.COMMENTS_SUFFIX}</span>
                     </div>
                   </CardContent>
                 </Card>
@@ -287,17 +280,17 @@ export default function HomePage() {
                 <Card className="hover:shadow-lg transition-shadow">
                   <CardHeader>
                     <div className="flex items-center gap-2 mb-2">
-                      <Badge className="bg-orange-100 text-orange-800">뉴스</Badge>
-                      <span className="text-sm text-gray-500">3일 전</span>
+                      <Badge className="bg-orange-100 text-orange-800">{CATEGORY_LABELS.news}</Badge>
+                      <span className="text-sm text-gray-500">3{TIME_DISPLAY.DAYS_AGO_SUFFIX}</span>
                     </div>
                     <CardTitle className="text-lg">2024 K8s Korea Meetup 안내</CardTitle>
                     <CardDescription text="다음 달 오프라인 밋업 일정과 발표자를 모집합니다..." />
                   </CardHeader>
                   <CardContent>
                     <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <span>작성자: admin</span>
+                      <span>{TIME_DISPLAY.AUTHOR_PREFIX} admin</span>
                       <span>•</span>
-                      <span>댓글 8개</span>
+                      <span>댓글 8{TIME_DISPLAY.COMMENTS_SUFFIX}</span>
                     </div>
                   </CardContent>
                 </Card>
@@ -320,9 +313,9 @@ export default function HomePage() {
                             const diffDays = Math.floor(diffHours / 24)
 
                             if (diffHours < 24) {
-                              return `${diffHours}시간 전`
+                              return `${diffHours}${TIME_DISPLAY.HOURS_AGO_SUFFIX}`
                             } else {
-                              return `${diffDays}일 전`
+                              return `${diffDays}${TIME_DISPLAY.DAYS_AGO_SUFFIX}`
                             }
                           })()}
                         </span>
@@ -332,9 +325,9 @@ export default function HomePage() {
                     </CardHeader>
                     <CardContent>
                       <div className="flex items-center gap-2 text-sm text-gray-500">
-                        <span>작성자: {post.author.name}</span>
+                        <span>{TIME_DISPLAY.AUTHOR_PREFIX} {post.author.name}</span>
                         <span>•</span>
-                        <span>댓글 {post.comments.length}개</span>
+                        <span>댓글 {post.comments.length}{TIME_DISPLAY.COMMENTS_SUFFIX}</span>
                       </div>
                     </CardContent>
                   </Card>
@@ -356,15 +349,15 @@ export default function HomePage() {
                 </div>
                 <span className="font-bold">Kubernetes Korea</span>
               </div>
-              <p className="text-gray-400 text-sm">한국 쿠버네티스 커뮤니티</p>
+              <p className="text-gray-400 text-sm">{PAGE_MESSAGES.COMMUNITY_TITLE}</p>
             </div>
 
             <div>
-              <h4 className="font-semibold mb-4">커뮤니티</h4>
+              <h4 className="font-semibold mb-4">{PAGE_MESSAGES.COMMUNITY}</h4>
               <ul className="space-y-2 text-sm text-gray-400">
                 <li>
                   <Link href="#" className="hover:text-white">
-                    게시판
+                    {PAGE_MESSAGES.BOARD}
                   </Link>
                 </li>
                 <li>
@@ -375,23 +368,23 @@ export default function HomePage() {
               </ul>
             </div>
             <div>
-              <h4 className="font-semibold mb-4">학습</h4>
+              <h4 className="font-semibold mb-4">{PAGE_MESSAGES.LEARNING}</h4>
               <ul className="space-y-2 text-sm text-gray-400">
                 <li>
                   <Link href="#" className="hover:text-white">
-                    기여하기
+                    {PAGE_MESSAGES.CONTRIBUTE}
                   </Link>
                 </li>
                 <li>
                   <Link href="#" className="hover:text-white">
-                    베스트 프랙티스
+                    {PAGE_MESSAGES.BEST_PRACTICES}
                   </Link>
                 </li>
               </ul>
             </div>
 
             <div>
-              <h4 className="font-semibold mb-4">연결</h4>
+              <h4 className="font-semibold mb-4">{PAGE_MESSAGES.CONNECT}</h4>
               <ul className="space-y-2 text-sm text-gray-400">
                 <li>
                   <Link href="#" className="hover:text-white">

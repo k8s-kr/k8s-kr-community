@@ -5,6 +5,7 @@ import { paginationUtils, searchUtils } from '@/lib/helpers'
 import { PAGINATION } from '@/lib/constants'
 import { useDataLoader, useSearchAndFilter, useAuthCheck } from '@/lib/hook-utils'
 import type { User, FollowRelation, UserStats, UseUserOptions } from '@/types'
+import { CONSOLE_ERROR_MESSAGES } from '@/lib/constants/messages'
 
 export interface UseUsersReturn {
   // 데이터
@@ -82,7 +83,7 @@ export const useUsers = (options: UseUserOptions & { page?: number; limit?: numb
       const relation = await storageService.getFollowRelation(session.user.email)
       setFollowRelation(relation)
     } catch (err) {
-      console.error('팔로우 데이터 로드 오류:', err)
+      console.error(CONSOLE_ERROR_MESSAGES.FOLLOW_DATA_LOAD_ERROR, err)
     }
   }, [session?.user?.email, includeFollowData])
 
@@ -112,7 +113,7 @@ export const useUsers = (options: UseUserOptions & { page?: number; limit?: numb
 
       setUserStats(stats)
     } catch (err) {
-      console.error('사용자 통계 로드 오류:', err)
+      console.error(CONSOLE_ERROR_MESSAGES.USER_STATS_LOAD_ERROR, err)
     }
   }, [session?.user?.email, includeStats])
 
@@ -158,7 +159,7 @@ export const useUsers = (options: UseUserOptions & { page?: number; limit?: numb
       }
       return success
     } catch (err) {
-      console.error('팔로우 오류:', err)
+      console.error(CONSOLE_ERROR_MESSAGES.FOLLOW_ERROR, err)
       return false
     }
   }, [requireAuth, session, loadFollowData, loadUserStats])
@@ -174,7 +175,7 @@ export const useUsers = (options: UseUserOptions & { page?: number; limit?: numb
       }
       return success
     } catch (err) {
-      console.error('언팔로우 오류:', err)
+      console.error(CONSOLE_ERROR_MESSAGES.UNFOLLOW_ERROR, err)
       return false
     }
   }, [requireAuth, session, loadFollowData, loadUserStats])
@@ -182,7 +183,7 @@ export const useUsers = (options: UseUserOptions & { page?: number; limit?: numb
   // 사용자 바이오 업데이트
   const updateUserBio = useCallback(async (bio: string): Promise<boolean> => {
     if (!session?.user?.email) {
-      console.error('로그인이 필요합니다.')
+      console.error(CONSOLE_ERROR_MESSAGES.LOGIN_REQUIRED)
       return false
     }
 
@@ -197,7 +198,7 @@ export const useUsers = (options: UseUserOptions & { page?: number; limit?: numb
       }
       return success
     } catch (err) {
-      console.error(err instanceof Error ? err.message : '프로필 업데이트 중 오류가 발생했습니다.')
+      console.error(err instanceof Error ? err.message : CONSOLE_ERROR_MESSAGES.PROFILE_UPDATE_ERROR)
       return false
     }
   }, [session, currentUser])
@@ -208,7 +209,7 @@ export const useUsers = (options: UseUserOptions & { page?: number; limit?: numb
       const user = await storageService.getUser(userId)
       return user
     } catch (err) {
-      console.error(err instanceof Error ? err.message : '사용자 정보를 불러오는 중 오류가 발생했습니다.')
+      console.error(err instanceof Error ? err.message : CONSOLE_ERROR_MESSAGES.USER_LOAD_ERROR)
       return null
     }
   }, [])
@@ -294,7 +295,7 @@ export const useFollowList = (userId: string) => {
         setFollowers(followerUsers)
         setFollowing(followingUsers)
       } catch (error) {
-        console.error('팔로우 목록 로드 오류:', error)
+        console.error(CONSOLE_ERROR_MESSAGES.FOLLOW_LIST_LOAD_ERROR, error)
       } finally {
         setLoading(false)
       }

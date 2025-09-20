@@ -13,6 +13,7 @@ import {
 import { Github, LogOut, User } from "lucide-react"
 import { useSession, signIn, signOut } from "next-auth/react"
 import Link from "next/link"
+import { AUTH_MESSAGES } from "@/lib/constants/messages"
 
 export function AuthButton() {
   const { data: session, status } = useSession()
@@ -21,7 +22,7 @@ export function AuthButton() {
   if (status === "loading") {
     return (
       <Button variant="outline" size="sm" disabled>
-        로딩중...
+        {AUTH_MESSAGES.LOADING}
       </Button>
     )
   }
@@ -53,13 +54,13 @@ export function AuthButton() {
         <DropdownMenuItem asChild>
           <Link href="/profile">
             <User className="mr-2 h-4 w-4" />
-            <span>프로필</span>
+            <span>{AUTH_MESSAGES.PROFILE}</span>
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => signOut()}>
           <LogOut className="mr-2 h-4 w-4" />
-          <span>로그아웃</span>
+          <span>{AUTH_MESSAGES.LOGOUT}</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
       </DropdownMenu>
@@ -69,7 +70,7 @@ export function AuthButton() {
   return (
     <Button variant="outline" size="sm" onClick={() => signIn("github")}>
       <Github className="w-4 h-4 mr-2" />
-      GitHub 로그인
+      {AUTH_MESSAGES.GITHUB_LOGIN}
     </Button>
   )
 }

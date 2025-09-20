@@ -3,13 +3,6 @@
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import Link from "next/link"
-import { PostHeader } from "@/components/post/PostHeader"
-import { PostContent } from "@/components/post/PostContent"
-import { PostEngagement } from "@/components/post/PostEngagement"
-import { CommentSection } from "@/components/post/CommentSection"
 import { POST_MESSAGES, ALERT_MESSAGES, CONSOLE_ERROR_MESSAGES } from "@/lib/constants/messages"
 
 interface Post {
@@ -42,7 +35,7 @@ interface Comment {
   parentId?: string
 }
 
-export default function PostDetailPage() {
+export function usePostDetail() {
   const { data: session } = useSession()
   const params = useParams()
   const router = useRouter()
@@ -65,6 +58,12 @@ export default function PostDetailPage() {
     if (foundPost) {
       setPost(foundPost)
     }
+    console.log("[v0] Looking for post with ID:", params.id)
+    console.log(
+      "[v0] Available posts:",
+      posts.map((p: Post) => ({ id: p.id, title: p.title })),
+    )
+    console.log("[v0] Found post:", foundPost)
   }, [params.id])
 
   const getAvailableUsers = () => {
@@ -187,17 +186,13 @@ export default function PostDetailPage() {
         alert(ALERT_MESSAGES.URL_COPIED)
       }
     } catch (error) {
-      try {
-        const textArea = document.createElement('textarea')
-        textArea.value = url
-        document.body.appendChild(textArea)
-        textArea.select()
-        document.execCommand('copy')
-        document.body.removeChild(textArea)
-        alert(ALERT_MESSAGES.URL_COPIED)
-      } catch (fallbackError) {
-        console.error('Failed to copy URL to clipboard', fallbackError)
-      }
+      const textArea = document.createElement('textarea')
+      textArea.value = url
+      document.body.appendChild(textArea)
+      textArea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textArea)
+      alert(ALERT_MESSAGES.URL_COPIED)
     }
   }
 
@@ -467,78 +462,22 @@ export default function PostDetailPage() {
     }
   }
 
-
-  if (params.id === "create") {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-blue-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">{POST_MESSAGES.REDIRECT_MESSAGE}</p>
-        </div>
-      </div>
-    )
+  return {
+    post,
+    session,
+    params,
+    newComment,
+    setNewComment,
+    isSubmittingComment,
+    getAvailableUsers,
+    renderMentions,
+    handleLikeToggle,
+    handleShare,
+    handleDeletePost,
+    handlePinToggle,
+    handleCommentSubmit,
+    handleCommentEdit,
+    handleCommentDelete,
+    handleReplySubmit
   }
-
-  if (!post) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-blue-900 flex items-center justify-center">
-        <Card className="w-full max-w-md text-center">
-          <CardContent className="pt-6">
-            <h2 className="text-xl font-semibold mb-2">{POST_MESSAGES.NOT_FOUND_TITLE}</h2>
-            <p className="text-gray-600 dark:text-gray-300 mb-4">{POST_MESSAGES.NOT_FOUND_DESC}</p>
-            <Button asChild>
-              <Link href="/posts">{POST_MESSAGES.BACK_TO_BOARD_FULL}</Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
-  const isLiked = session && session.user?.email && post.likes?.includes(session.user.email)
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-blue-900">
-      <PostHeader />
-
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto space-y-6">
-          <Card className="border-0 shadow-xl">
-            <PostContent
-              post={post}
-              session={session}
-              onDelete={handleDeletePost}
-              onPinToggle={handlePinToggle}
-              renderMentions={renderMentions}
-            />
-            <CardContent>
-              <PostEngagement
-                post={post}
-                session={session}
-                onLikeToggle={handleLikeToggle}
-                onShare={handleShare}
-                getAvailableUsers={getAvailableUsers}
-                isLiked={!!isLiked}
-              />
-            </CardContent>
-          </Card>
-
-          <CommentSection
-            post={post}
-            session={session}
-            comments={post.comments}
-            newComment={newComment}
-            setNewComment={setNewComment}
-            onCommentSubmit={handleCommentSubmit}
-            onCommentEdit={handleCommentEdit}
-            onCommentDelete={handleCommentDelete}
-            onReplySubmit={handleReplySubmit}
-            getAvailableUsers={getAvailableUsers}
-            renderMentions={renderMentions}
-            isSubmitting={isSubmittingComment}
-          />
-        </div>
-      </div>
-    </div>
-  )
 }
