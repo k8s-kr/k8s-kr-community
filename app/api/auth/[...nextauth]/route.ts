@@ -13,14 +13,14 @@ const handler = NextAuth({
       if (account) {
         token.accessToken = account.access_token
       }
-      if (profile) {
+      if (profile?.login) {
         token.githubUsername = profile.login
       }
       return token
     },
     async session({ session, token }) {
-      if (token.githubUsername) {
-        session.user.githubUsername = token.githubUsername
+      if (token.githubUsername && session.user) {
+        session.user.githubUsername = token.githubUsername as string
       }
       return session
     },

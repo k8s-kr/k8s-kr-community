@@ -92,7 +92,7 @@ export default function PostDetailPage() {
     console.log("[v0] Looking for post with ID:", params.id)
     console.log(
       "[v0] Available posts:",
-      posts.map((p) => ({ id: p.id, title: p.title })),
+      posts.map((p: Post) => ({ id: p.id, title: p.title })),
     )
     console.log("[v0] Found post:", foundPost)
   }, [params.id])
